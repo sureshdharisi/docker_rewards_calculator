@@ -1,0 +1,87 @@
+version: "3.9"
+services:
+  rewards-postgress:
+    container_name: rewards-postgress
+    image: postgres
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_MULTIPLE_DATABASES: "rewards-config"
+    networks:
+      - spring-cloud-network       
+  pgadmin:
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4
+    restart: always
+    depends_on:
+      - rewards-postgress
+    environment:
+      PGADMIN_DEFAULT_EMAIL: test_records_calculator@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    networks:
+      - spring-cloud-network       
+  reward-calculator-naming-server:
+    container_name: reward-calculator-naming-server
+    image: sureshdharisi123/reward-calculator-naming-server
+    restart: always
+    ports:
+      - "8761:8761"
+    networks:
+      - spring-cloud-network 
+  reward-points-store:
+    container_name: reward-points-store
+    image: sureshdharisi123/reward-points-store
+    restart: always
+    depends_on:
+      - rewards-postgress
+      - reward-calculator-naming-server
+    ports:
+      - "8585:8585"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://rewards-postgress:5432/rewards-config
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - NAMING_SERVER=reward-calculator-naming-server
+    networks:
+      - spring-cloud-network 
+  customer-transactions:
+    container_name: customer-transactions
+    image: sureshdharisi123/customer-transactions
+    restart: always
+    depends_on:
+      - rewards-postgress
+      - reward-calculator-naming-server
+    ports:
+      - "8686:8686"
+    environment:
+      - NAMING_SERVER=reward-calculator-naming-server
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://rewards-postgress:5432/customer-transactions
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    networks:
+      - spring-cloud-network 
+  rewards-calculator: 
+    container_name: rewards-calculator
+    image: sureshdharisi123/rewards-calculator
+    restart: always
+    depends_on:
+      - rewards-postgress
+      - reward-calculator-naming-server
+      - customer-transactions
+      - reward-points-store
+    ports:
+      - "8787:8787"
+    environment:
+      - NAMING_SERVER=reward-calculator-naming-server
+    networks:
+      - spring-cloud-network  
+networks:
+    spring-cloud-network:
+        driver: bridge
